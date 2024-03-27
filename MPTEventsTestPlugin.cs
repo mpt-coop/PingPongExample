@@ -13,6 +13,23 @@ namespace MPTEventsTest
     [BepInPlugin("com.pandahhcorp.mpteventstest", "MPTEventsTest", "1.0.0")]
     public class MPTEventsTestPlugin : BaseUnityPlugin
     {
+        private NetDataWriter _writer;
+        
+        // Prioritize reusing one NetDataWriter instance over creating a new one every time
+        private NetDataWriter GetNetDataWriter()
+        {
+            if (_writer == null)
+            {
+                _writer = new NetDataWriter();
+            }
+            else
+            {
+                _writer.Reset();
+            }
+
+            return _writer;
+        }
+
         private void Awake()
         {
             // Adds a console command that will send a packet to all clients, which they will then send one back to us
@@ -28,7 +45,7 @@ namespace MPTEventsTest
             }
 
             // This is our buffer, the data we write into here will be sent over the network
-            NetDataWriter writer = new NetDataWriter();
+            NetDataWriter writer = GetNetDataWriter();
 
             // This is the packet that we want to send, empty initializer as it has no data (I prefer initializers on packets over constructors)
             PingPacket packet = new PingPacket { };
@@ -63,7 +80,7 @@ namespace MPTEventsTest
         private void OnMPTClientCreatedEvent(MPTClientCreatedEvent clientCreatedEvent)
         {
             // Start listening for the packet that we will be receiving from the server
-            clientCreatedEvent.Client._packetProcessor.SubscribeReusable<PingPacket>(OnPingPacket);
+            clientCreatedEvent.Client._packetProcessor.SubscribeNetSerializable<PingPacket>(OnPingPacket);
         }
 
         private void OnMPTClientDestroyedEvent(MPTClientDestroyedEvent clientDestroyedEvent)
@@ -76,7 +93,7 @@ namespace MPTEventsTest
         private void OnMPTServerCreatedEvent(MPTServerCreatedEvent serverCreatedEvent)
         {
             // Start listening for the packet that we will be receiving from clients
-            serverCreatedEvent.Server._packetProcessor.SubscribeReusable<PongPacket>(OnPongPacket);
+            serverCreatedEvent.Server._packetProcessor.SubscribeNetSerializable<PongPacket>(OnPongPacket);
         }
 
         private void OnMPTServerDestroyedEvent(MPTServerDestroyedEvent serverDestroyedEvent)
@@ -95,7 +112,7 @@ namespace MPTEventsTest
             ConsoleScreen.Log("Server sent ping, sending pong...");
 
             // Create our buffer
-            NetDataWriter writer = new NetDataWriter();
+            NetDataWriter writer = GetNetDataWriter();
 
             // Create our packet
             PongPacket responsePacket = new PongPacket { };
